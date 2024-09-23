@@ -1,2 +1,5 @@
 .venv/
 *.code-workspace
+untreated_dataset/
+stems/
+__pycache__/
