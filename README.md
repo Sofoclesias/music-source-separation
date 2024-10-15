@@ -1,6 +1,8 @@
 # music-source-separation
 Repositorio para modelos enfocados en la separación de pistas instrumentales en canciones.
 
+Hola Gerardo xd
+
 Al importar las dependencias, se debe agregar .windows. entre signal y la técnica de similitud en 'nussl/core/constants.py'
 
 * WINDOW_HAMMING = scipy.signal.hamming.__name__
