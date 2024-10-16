@@ -2,4 +2,6 @@
 *.code-workspace
 untreated_dataset/
 stems/
+processed_stems/
+*.json
 __pycache__/
