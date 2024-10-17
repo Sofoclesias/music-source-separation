@@ -5,3 +5,6 @@ stems/
 processed_stems/
 *.json
 __pycache__/
+background/
+foreground/
+*.jams
