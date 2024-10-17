@@ -2,9 +2,5 @@
 *.code-workspace
 untreated_dataset/
 stems/
-processed_stems/
-*.json
 __pycache__/
-background/
-foreground/
-*.jams
+temp/
