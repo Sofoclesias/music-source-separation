@@ -4,3 +4,4 @@ untreated_dataset/
 stems/
 __pycache__/
 temp/
+*.rar

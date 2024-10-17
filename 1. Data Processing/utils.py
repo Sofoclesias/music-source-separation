@@ -290,10 +290,20 @@ class cacophony:
         shutil.rmtree('temp')
         
         return X, Y
-    
-'''
-En adelante, para cargar X e Y, se puede acudir al siguiente shortcut de copia y pega.
 
+def shortcut(jams_path: str = 'soundscapes.jams'):
+    """Función de atajo para recuperar al toque los tensores X e Y.
+
+    Args:
+        jams_path (str | None, optional): Ruta al archivo .jams completo. Por defecto, None.
+
+    Returns:
+        X: Array del mix con todas las frecuencias unidas. Dimensiones:
+            (n_files, marco 1D (1), frecuencias)
+        Y: Array del mix con todas las frecuencias separadas. Dimensiones:
+            (n_files, marco 1D (1), frecuencias, pistas separadas (6))
+    """
     mixer = cacophony()
-    X, Y = mixer.read_from_jams()
-'''
+    X, Y = mixer.read_from_jams(jams_path)
+    
+    return X, Y
