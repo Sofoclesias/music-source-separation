@@ -1,7 +1,8 @@
 .venv/
 *.code-workspace
-untreated_dataset/
+datasets/
 stems/
 __pycache__/
 temp/
-*.rar
+*.zip
+*.egg-info
