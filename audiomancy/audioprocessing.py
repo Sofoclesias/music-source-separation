@@ -35,15 +35,6 @@ from tqdm import tqdm
 import shutil
 import jams
 
-LABELS = {
-    'accoustic':0,
-    'bass':1,
-    'drums':2,
-    'piano':3,
-    'strings':4,
-    'vocals':5
-}
-
 def remove_silence(audio_path):
     """Elimina los espacios silenciosos en una pista de audio.
     Si se dan un enlace de directorio, carga el archivo.
@@ -75,7 +66,7 @@ class cacophony:
     """Clase que facilita la creación de muestras aleatorias y la carga
     de metadatos ya pre-confeccionados.
     """
-    def __init__(self, duration: float = 5.0, sampling: int = 44100, n_channels: int = 1, ref_db: int = -20, fg_path: str = 'stems', seed: int = 42):
+    def __init__(self, duration: float = 5.0, sampling: int = 44100, n_channels: int = 1, ref_db: int = -20, fg_path: str | None = None, seed: int = 42):
         """Configura los hiperparámetros del creador de muestras
         aleatorias.
 
@@ -135,9 +126,14 @@ class cacophony:
         self.sr = sampling
         self.n_channels = n_channels
         self.ref_db = ref_db
-        self.fg_path = fg_path
         
-    def generate_random(self, n: int = 1000, jams_path: str = 'soundscapes.jams', snr: tuple = (-5, 5), pitch_shift: tuple = (-2, 2), time_stretch: tuple = (0.8, 1.2)):
+        if fg_path is None:
+            from .constants import STEMS_PATH
+            self.fg_path = STEMS_PATH
+        else:
+            pass
+        
+    def generate_random(self, n: int = 1000, jams_path: str | None = None, snr: tuple = (-5, 5), pitch_shift: tuple = (-2, 2), time_stretch: tuple = (0.8, 1.2)):
         """Genera iterativamente metadatos de mixes. Por defecto, no
         exporta ninguna pista de audio para evitar sobrecargas de memoria.
         
@@ -176,9 +172,16 @@ class cacophony:
         }
         """
         
-        if not os.path.exists('temp'): # Creación de la carpeta "temp/"
+        from .constants import ABSOLUTE_PATH, TEMP_PATH, LABELS
+        
+        if jams_path is None:
+            jams_path = os.path.join(ABSOLUTE_PATH,'common',f'{n}_soundscapes.jams')
+        else:
+            pass
+        
+        if not os.path.exists(TEMP_PATH): # Creación de la carpeta "temp/"
             print('Creada carpeta temporal para resguardar memoria.\n')
-            os.makedirs('temp',exist_ok=True)
+            os.makedirs(TEMP_PATH,exist_ok=True)
         
         
         sc = scaper.Scaper(             
@@ -221,21 +224,21 @@ class cacophony:
                 todas las manipulaciones mencionadas.
                 '''
                 
-                sc.generate(jams_path=os.path.join('temp',f'soundscape_{i+1}.jams'),fix_clipping=True)
+                sc.generate(jams_path=os.path.join(TEMP_PATH,f'soundscape_{i+1}.jams'),fix_clipping=True)
         
         print('\nFusión de archivos .jams')
         all_jams = jams.JAMS()
-        for jams_file in tqdm([os.path.join('temp',f) for f in os.listdir('temp')]):
+        for jams_file in tqdm([os.path.join(TEMP_PATH,f) for f in os.listdir(TEMP_PATH)]):
             jam = jams.load(jams_file,strict=False)
             
             for annot in jam.annotations:
                 all_jams.annotations.append(annot) # Combina todo en un mismo archivo.
                 
         all_jams.save(jams_path,strict=False)
-        shutil.rmtree('temp')
+        shutil.rmtree(TEMP_PATH)
         print('Creación de metadata terminada. Eliminada carpeta temporal.\n')
         
-    def read_from_jams(self,jams_path: str = 'soundscapes.jams'):
+    def read_from_jams(self,jams_path: str | None = None):
         """Sea para cargar los datos que recién crees o para el archivo
         .jams compartido, con este método reconstruyes los audios en
         tensores de numpy para el procesamiento posterior.
@@ -250,9 +253,16 @@ class cacophony:
             (n_files, marco 1D (1), frecuencias, pistas separadas (6))
         """
         
-        if not os.path.exists('temp'):
+        from .constants import STEMS_PATH, TEMP_PATH, JAMS_FILE_200
+        
+        if jams_path is None:
+            jams_path = JAMS_FILE_200
+        else:
+            pass
+        
+        if not os.path.exists(TEMP_PATH): # Creación de la carpeta "temp/"
             print('Creada carpeta temporal para resguardar memoria.\n')
-            os.makedirs('temp',exist_ok=True)
+            os.makedirs(TEMP_PATH,exist_ok=True)
         
         mixtures = []
         stems = []
@@ -262,7 +272,7 @@ class cacophony:
             temp = jams.JAMS()
             temp.annotations.append(ann)
             temp.file_metadata.duration = 5.0           # Sin esto, suelta error.
-            temp.save(r'temp\temp.jams',strict=False)
+            temp.save(os.path.join(TEMP_PATH,'temp.jams'),strict=False)
             """De nuevo, como Scaper trabaja con directorios y no con
             arrays, es necesario exportar cada elemento del archivo .jams
             en uno individual.
@@ -271,9 +281,9 @@ class cacophony:
             """        
             
             mix_audio, _, _, stem_list = scaper.generate_from_jams(
-                jams_infile = r'temp\temp.jams',
-                fg_path = 'stems',
-                bg_path = 'stems'
+                jams_infile = os.path.join(TEMP_PATH,'temp.jams'),
+                fg_path = STEMS_PATH,
+                bg_path = STEMS_PATH
             )
             
             mixtures.append(normalize_track(mix_audio).T)
@@ -283,27 +293,10 @@ class cacophony:
                 stem.append(normalize_track(stem_audio))
                 
             stems.append(np.array(stem).T)
-            os.remove(r'temp\temp.jams')    # Quita el archivo .jams
+            os.remove(os.path.join(TEMP_PATH,'temp.jams'))    # Quita el archivo .jams
 
         X = np.array(mixtures)
         Y = np.array(stems)
-        shutil.rmtree('temp')
+        shutil.rmtree(TEMP_PATH)
         
         return X, Y
-
-def shortcut(jams_path: str = 'soundscapes.jams'):
-    """Función de atajo para recuperar al toque los tensores X e Y.
-
-    Args:
-        jams_path (str | None, optional): Ruta al archivo .jams completo. Por defecto, None.
-
-    Returns:
-        X: Array del mix con todas las frecuencias unidas. Dimensiones:
-            (n_files, marco 1D (1), frecuencias)
-        Y: Array del mix con todas las frecuencias separadas. Dimensiones:
-            (n_files, marco 1D (1), frecuencias, pistas separadas (6))
-    """
-    mixer = cacophony()
-    X, Y = mixer.read_from_jams(jams_path)
-    
-    return X, Y
