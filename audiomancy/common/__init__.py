@@ -10,6 +10,9 @@ def download_stems():
     """
     Descarga las pistas de audio seleccionadas para el trabajo.
     Pesan cerca de 18 GB.
+    
+    Estos archivos sí son obligatorios para recuperar las muestras aleatorias
+    y entrenar a los modelos.
     """
     stems_url = 'https://mega.nz/file/eUwHCLCJ#7g4qRZnCxxgnQyY8WzWaWAjg14k_D59FiJRjLyz1MJo'
     stems_size = 18 # 18 GB
@@ -42,6 +45,8 @@ def download_datasets():
     """
     Descarga las pistas de audio sin alterar de los datasets originales.
     Pesan cerca de 72 GB.
+    
+    Solo descárguelo si quiere evaluar los tracks desde sus fuentes originales.
     """
     synthSOD_url = 'https://zenodo.org/record/13759492/files/SynthSOD.zip?download=1'
     musdb18hq_url = 'https://zenodo.org/record/3338373/files/musdb18hq.zip?download=1'
