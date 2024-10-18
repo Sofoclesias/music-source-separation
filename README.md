@@ -1,11 +1,7 @@
-# music-source-separation
+# Audiomancy.
 Repositorio para modelos enfocados en la separación de pistas instrumentales en canciones.
 
-Para reconocer audiomancy como un paquete siendo contribuidor, se debe ejecutar el siguiente comando en la terminal.
-
-``` bash
-pip install -e .
-``` 
+Para realizar contribuciones, considerar lo documentado en CONTRIBUTING.md
 
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣶⣿⣿⣷⣶⣄⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -43,4 +39,4 @@ pip install -e .
 
 Anexos:
 
-https://drive.google.com/drive/folders/1Bc28KCx4fkmkDmRaUcBPbAFrdABzFcCI?usp=sharing
+https://www.notion.so/ars-enchiridion/Towards-6-Stem-Music-Source-Separation-A-Hybrid-U-Net-and-Transformer-Based-Architecture-11c86baadd43806485ece9cbbcbaf61b
