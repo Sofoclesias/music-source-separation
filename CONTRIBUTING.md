@@ -39,8 +39,7 @@ choco install ffmpeg
 Sox:
 - Instalar con chocolatey. (Recomendado, así se me configuró bien a mí.)
 ``` bash
-import audiomancy
-audiomancy.common.download_stems()
+choco install sox.portable
 ```
 - Descargar de la fuente original: http://sox.sourceforge.net/
 
