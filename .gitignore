@@ -4,5 +4,5 @@ datasets/
 stems/
 __pycache__/
 temp/
-*.rar
+*.zip
 *.egg-info

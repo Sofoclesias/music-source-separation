@@ -1,3 +1,9 @@
+"""
+Módulo para recabar variables constantes.
+La mayoría son directorios, pero también están los labels
+del modelo.
+"""
+
 import os
 
 ABSOLUTE_PATH = os.path.join(os.path.dirname(__file__))

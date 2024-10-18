@@ -1,14 +1,94 @@
-"""Funciones para manejar los archivos comunes del dataset o también algunos
+"""
+Funciones para manejar los archivos comunes del dataset o también algunos
 quality of life.
 """
 
 import os
+import shutil
 
 def download_stems():
-    print(True)
+    """
+    Descarga las pistas de audio seleccionadas para el trabajo.
+    Pesan cerca de 18 GB.
+    """
+    stems_url = 'https://mega.nz/file/eUwHCLCJ#7g4qRZnCxxgnQyY8WzWaWAjg14k_D59FiJRjLyz1MJo'
+    stems_size = 18 # 18 GB
+    
+    _, _, free = shutil.disk_usage("/")
+    
+    if free/(2**10 * 2**10 * 2**10) < stems_size:
+        raise MemoryError(f"No hay suficiente espacio en disco para descargar los stems.\n El peso conjunto es {stems_size} GB, pero usted tiene disponibles {free} GB.")
+    else:
+        op = input(f"""Se instalarán los stems: {stems_size} GB ({stems_url})
+
+Actualmente tiene {free/(2**10 * 2**10 * 2**10)} GB en el disco.
+
+¿Desea continuar? [y/n]:""")
+        
+        if op=='y':
+            from .utils import download_mega, unzip_file
+            from ..constants import STEMS_PATH
+            
+            print('\nDescargando stems.zip')
+            download_mega(stems_url,os.path.join(STEMS_PATH,'stems.zip'))
+            print(f'\nDescomprimiendo stems.zip')
+            unzip_file(os.path.join(STEMS_PATH,'stems.zip'),os.path.join(STEMS_PATH,'stems'))
+                             
+            print(f'Descarga y descompresión completada. Puede encontrar los archivos en {STEMS_PATH}.')
+        else:
+            pass
     
 def download_datasets():
-    print(True)
+    """
+    Descarga las pistas de audio sin alterar de los datasets originales.
+    Pesan cerca de 72 GB.
+    """
+    synthSOD_url = 'https://zenodo.org/record/13759492/files/SynthSOD.zip?download=1'
+    musdb18hq_url = 'https://zenodo.org/record/3338373/files/musdb18hq.zip?download=1'
+    musicnet_url = 'https://zenodo.org/record/5120004/files/musicnet.tar.gz?download=1'
+    
+    synthSOD_size = 45  # 45 GB para SynthSOD
+    musdb18hq_size = 26  # 26 GB para MUSDB18HQ (desde Zenodo)
+    musicnet_size = 11.1  # 11.1 GB para MusicNet
+    
+    _, _, free = shutil.disk_usage("/")
+    
+    if free/(2**10 * 2**10 * 2**10) < synthSOD_size + musdb18hq_size + musicnet_size:
+        raise MemoryError(f"No hay suficiente espacio en disco para descargar los tres datasets.\n El peso conjunto es {synthSOD_size + musdb18hq_size + musicnet_size} GB, pero usted tiene disponibles {free} GB.")
+    else:
+        op = input(f"""Se instalarán los siguientes datasets:
+              
+SynthSOD: {synthSOD_size} GB ({synthSOD_url})
+MusicNet: {musicnet_size} GB ({musicnet_url})
+Musdb18-HQ: {musdb18hq_size} GB ({musdb18hq_url})
+
+Actualmente tiene {free/(2**10 * 2**10 * 2**10)} GB en el disco.
+
+¿Desea continuar? [y/n]:""")
+        
+        if op=='y':
+            from .utils import download_file, untar_file, unzip_file
+            import re
+            from ..constants import DATASETS_PATH
+            
+            os.makedirs(DATASETS_PATH,exist_ok=True)
+            filename = re.compile(r'(?<=/)[\w.]+(?=\?)')
+            
+            for dataset in [synthSOD_url, musicnet_url, musdb18hq_url]:
+                f = filename.findall(dataset)[0]
+                path = os.path.join(DATASETS_PATH,f)
+                
+                print(f'\nDescargando {f}')
+                download_file(dataset,f)
+                print(f'\nDescomprimiendo {f}')
+                if 'zip' in f:
+                    unzip_file(path,os.path.join(DATASETS_PATH,f.split('.')[0].lower()))
+                elif 'tar.gz' in f:
+                    untar_file(path,os.path.join(DATASETS_PATH,f.split('.')[0].lower()))
+                    
+                print(f'Descargas y descompresiones completadas. Puede encontrar los archivos en {DATASETS_PATH}.')
+        else:
+            pass
 
 def read_from_jams(jams_path: int | str = 200):
     """Función de atajo para recuperar al toque los tensores X e Y. Se asume que ya se tienen 
