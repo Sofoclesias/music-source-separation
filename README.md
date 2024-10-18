@@ -1,4 +1,4 @@
-# Audiomancy.
+# Audiomancy
 Repositorio para modelos enfocados en la separación de pistas instrumentales en canciones.
 
 Para realizar contribuciones, considerar lo documentado en CONTRIBUTING.md
