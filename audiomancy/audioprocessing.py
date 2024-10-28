@@ -34,6 +34,12 @@ import os
 from tqdm import tqdm
 import shutil
 import jams
+import torch
+import typing as tp
+import torchaudio as ta
+from pathlib import Path
+import lameenc
+import julius
 
 def remove_silence(audio_path):
     """Elimina los espacios silenciosos en una pista de audio.
@@ -300,3 +306,146 @@ class cacophony:
         shutil.rmtree(TEMP_PATH)
         
         return X, Y
+    
+
+
+def spectro(x, n_fft=512, hop_length=None, pad=0):
+    *other, length = x.shape
+    x = x.reshape(-1, length)
+    is_mps = x.device.type == 'mps'
+    if is_mps:
+        x = x.cpu()
+    z = torch.stft(x,
+                n_fft * (1 + pad),
+                hop_length or n_fft // 4,
+                window=torch.hann_window(n_fft).to(x),
+                win_length=n_fft,
+                normalized=True,
+                center=True,
+                return_complex=True,
+                pad_mode='reflect')
+    _, freqs, frame = z.shape
+    return z.view(*other, freqs, frame)
+
+
+def ispectro(z, hop_length=None, length=None, pad=0):
+    *other, freqs, frames = z.shape
+    n_fft = 2 * freqs - 2
+    z = z.view(-1, freqs, frames)
+    win_length = n_fft // (1 + pad)
+    is_mps = z.device.type == 'mps'
+    if is_mps:
+        z = z.cpu()
+    x = torch.istft(z,
+                 n_fft,
+                 hop_length,
+                 window=torch.hann_window(win_length).to(z.real),
+                 win_length=win_length,
+                 normalized=True,
+                 length=length,
+                 center=True)
+    _, length = x.shape
+    return x.view(*other, length)
+
+def prevent_clip(wav, mode='rescale'):
+    """
+    different strategies for avoiding raw clipping.
+    """
+    if mode is None or mode == 'none':
+        return wav
+    assert wav.dtype.is_floating_point, "too late for clipping"
+    if mode == 'rescale':
+        wav = wav / max(1.01 * wav.abs().max(), 1)
+    elif mode == 'clamp':
+        wav = wav.clamp(-0.99, 0.99)
+    elif mode == 'tanh':
+        wav = torch.tanh(wav)
+    else:
+        raise ValueError(f"Invalid mode {mode}")
+    return wav
+
+def convert_audio_channels(wav, channels=2):
+    """Convert audio to the given number of channels."""
+    *shape, src_channels, length = wav.shape
+    if src_channels == channels:
+        pass
+    elif channels == 1:
+        # Case 1:
+        # The caller asked 1-channel audio, but the stream have multiple
+        # channels, downmix all channels.
+        wav = wav.mean(dim=-2, keepdim=True)
+    elif src_channels == 1:
+        # Case 2:
+        # The caller asked for multiple channels, but the input file have
+        # one single channel, replicate the audio over all channels.
+        wav = wav.expand(*shape, channels, length)
+    elif src_channels >= channels:
+        # Case 3:
+        # The caller asked for multiple channels, and the input file have
+        # more channels than requested. In that case return the first channels.
+        wav = wav[..., :channels, :]
+    else:
+        # Case 4: What is a reasonable choice here?
+        raise ValueError('The audio file has less channels than requested but is not mono.')
+    return wav
+
+def i16_pcm(wav):
+    """Convert audio to 16 bits integer PCM format."""
+    if wav.dtype.is_floating_point:
+        return (wav.clamp_(-1, 1) * (2**15 - 1)).short()
+    else:
+        return wav
+
+def encode_mp3(wav, path, samplerate=44100, bitrate=320, quality=2, verbose=False):
+    """Save given audio as mp3. This should work on all OSes."""
+    C, T = wav.shape
+    wav = i16_pcm(wav)
+    encoder = lameenc.Encoder()
+    encoder.set_bit_rate(bitrate)
+    encoder.set_in_sample_rate(samplerate)
+    encoder.set_channels(C)
+    encoder.set_quality(quality)  # 2-highest, 7-fastest
+    if not verbose:
+        encoder.silence()
+    wav = wav.data.cpu()
+    wav = wav.transpose(0, 1).numpy()
+    mp3_data = encoder.encode(wav.tobytes())
+    mp3_data += encoder.flush()
+    with open(path, "wb") as f:
+        f.write(mp3_data)
+
+def save_audio(wav: torch.Tensor,
+               path: tp.Union[str, Path],
+               samplerate: int,
+               bitrate: int = 320,
+               clip: tp.Literal["rescale", "clamp", "tanh", "none"] = 'rescale',
+               bits_per_sample: tp.Literal[16, 24, 32] = 16,
+               as_float: bool = False,
+               preset: tp.Literal[2, 3, 4, 5, 6, 7] = 2):
+    """Save audio file, automatically preventing clipping if necessary
+    based on the given `clip` strategy. If the path ends in `.mp3`, this
+    will save as mp3 with the given `bitrate`. Use `preset` to set mp3 quality:
+    2 for highest quality, 7 for fastest speed
+    """
+    wav = prevent_clip(wav, mode=clip)
+    path = Path(path)
+    suffix = path.suffix.lower()
+    if suffix == ".mp3":
+        encode_mp3(wav, path, samplerate, bitrate, preset, verbose=True)
+    elif suffix == ".wav":
+        if as_float:
+            bits_per_sample = 32
+            encoding = 'PCM_F'
+        else:
+            encoding = 'PCM_S'
+        ta.save(str(path), wav, sample_rate=samplerate,
+                encoding=encoding, bits_per_sample=bits_per_sample)
+    elif suffix == ".flac":
+        ta.save(str(path), wav, sample_rate=samplerate, bits_per_sample=bits_per_sample)
+    else:
+        raise ValueError(f"Invalid suffix for path: {suffix}")
+    
+def convert_audio(wav, from_samplerate, to_samplerate, channels) -> torch.Tensor:
+    """Convert audio from a given samplerate to a target one and target number of channels."""
+    wav = convert_audio_channels(wav, channels)
+    return julius.resample_frac(wav, from_samplerate, to_samplerate)
