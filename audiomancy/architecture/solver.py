@@ -1,14 +1,15 @@
 
 import logging
+import os
 import torch
 import torch.nn.functional as F
-from dora import get_xp
 from dora.utils import write_and_rename
 from dora.log import LogProgress, bold
 
 from . import distrib, states
 from .utils import EMA, ModelEMA, pull_metric
 from .evaluate import evaluate, new_sdr, svd_penalty
+from ..constants import OUTPUT_PATH
 from .apply import apply_model
 
 logger = logging.getLogger(__name__)
@@ -39,21 +40,21 @@ class Solver(object):
                 for decay in decays:
                     self.emas[kind].append(ModelEMA(self.model, decay, device=device))
 
-        xp = get_xp()
-        self.folder = xp.folder
+        self.folder = os.path.join(OUTPUT_PATH,args.exp.name)
+        os.makedirs(self.folder,exist_ok=True)
         # Checkpoints
-        self.checkpoint_file = xp.folder / 'checkpoint.th'
-        self.best_file = xp.folder / 'best.th'
-        logger.debug("Checkpoint will be saved to %s", self.checkpoint_file.resolve())
+        self.checkpoint_file = os.path.join(self.folder,'checkpoint.th')
+        self.best_file = os.path.join(self.folder,'best.th')
+        logger.debug("Checkpoint will be saved to %s", self.checkpoint_file)
         self.best_state = None
         self.best_changed = False
 
-        self.link = xp.link
-        self.history = self.link.history
+        self.history = os.path.join(self.folder,'history')
+        os.makedirs(self.history,exist_ok=True)
 
         self._reset()
 
-    def _serialize(self, epoch):
+    def _serialize(self):
         package = {}
         package['state'] = self.model.state_dict()
         package['optimizer'] = self.optimizer.state_dict()
@@ -65,11 +66,6 @@ class Solver(object):
                 package[f'ema_{kind}_{k}'] = ema.state_dict()
         with write_and_rename(self.checkpoint_file) as tmp:
             torch.save(package, tmp)
-
-        save_every = self.args.save_every
-        if save_every and (epoch + 1) % save_every == 0 and epoch + 1 != self.args.epochs:
-            with write_and_rename(self.folder / f'checkpoint_{epoch + 1}.th') as tmp:
-                torch.save(package, tmp)
 
         if self.best_changed:
             # Saving only the latest best model.
@@ -91,19 +87,6 @@ class Solver(object):
             for kind, emas in self.emas.items():
                 for k, ema in enumerate(emas):
                     ema.load_state_dict(package[f'ema_{kind}_{k}'])
-        elif self.args.continue_from:
-            name = 'checkpoint.th'
-            root = self.folder.parent
-            cf = root / str(self.args.continue_from) / name
-            logger.info("Loading from %s", cf)
-            package = torch.load(cf, 'cpu')
-            self.best_state = package['best_state']
-            if self.args.continue_best:
-                self.model.load_state_dict(package['best_state'], strict=False)
-            else:
-                self.model.load_state_dict(package['state'], strict=False)
-            if self.args.continue_opt:
-                self.optimizer.load_state_dict(package['optimizer'])
 
     def _format_train(self, metrics: dict) -> dict:
         """Formatting for train/valid metrics."""
@@ -250,7 +233,7 @@ class Solver(object):
                 compute_sdr = self.args.test.sdr and is_last
                 with states.swap_state(self.model, state):
                     with torch.no_grad():
-                        metrics['test'] = evaluate(self, compute_sdr=compute_sdr)
+                        metrics['test'] = evaluate(self, self.loaders['test'],compute_sdr=compute_sdr)
                 formatted = self._format_test(metrics['test'])
                 logger.info(bold(f"Test Summary | Epoch {epoch + 1} | {_summary(formatted)}"))
             self.link.push_metrics(metrics)
@@ -258,7 +241,7 @@ class Solver(object):
             if distrib.rank == 0:
                 # Save model each epoch
                 self._serialize(epoch)
-                logger.debug("Checkpoint saved to %s", self.checkpoint_file.resolve())
+                logger.debug("Checkpoint saved to %s", self.checkpoint_file)
             if is_last:
                 break
 
@@ -280,7 +263,6 @@ class Solver(object):
         for idx, sources in enumerate(logprog):
             sources = sources.to(self.device)
             if train:
-                sources = self.augment(sources)
                 mix = sources.sum(dim=1)
             else:
                 mix = sources[:, 0]
@@ -290,8 +272,6 @@ class Solver(object):
                 estimate = apply_model(self.model, mix, split=self.args.test.split, overlap=0)
             else:
                 estimate = self.dmodel(mix)
-            if train and hasattr(self.model, 'transform_target'):
-                sources = self.model.transform_target(mix, sources)
             assert estimate.shape == sources.shape, (estimate.shape, sources.shape)
             dims = tuple(range(2, sources.dim()))
 
@@ -367,12 +347,6 @@ class Solver(object):
             logprog.update(**logs)
             # Just in case, clear some memory
             del loss, estimate, reco, ms
-            if args.max_batches == idx:
-                break
-            if self.args.debug and train:
-                break
-            if self.args.flag == 'debug':
-                break
         if train:
             for ema in self.emas['epoch']:
                 ema.update()

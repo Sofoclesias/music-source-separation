@@ -7,6 +7,8 @@ import math
 from collections import defaultdict
 from contextlib import contextmanager
 from .states import swap_state
+import tempfile
+import os
 
 def pad1d(x: torch.Tensor, paddings: tp.Tuple[int, int], mode: str = 'constant', value: float = 0.):
     """Tiny wrapper around F.pad, just to allow for reflect padding on small input.
@@ -160,3 +162,14 @@ def pull_metric(history: tp.List[dict], name: str):
             metric = metric[part]
         out.append(metric)
     return out
+
+def temp_filenames(count: int, delete=True):
+    names = []
+    try:
+        for _ in range(count):
+            names.append(tempfile.NamedTemporaryFile(delete=False).name)
+        yield names
+    finally:
+        if delete:
+            for name in names:
+                os.unlink(name)

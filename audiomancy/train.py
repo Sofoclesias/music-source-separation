@@ -5,13 +5,13 @@ Módulo y algoritmos para entrenar los modelos creados.
 
 import logging
 import os
-from pathlib import Path
 import sys
 import torch
-from omegaconf import OmegaConf
+from sklearn.model_selection import train_test_split
 from .architecture import distrib
 from .architecture.solver import Solver
-import hydra
+from .common import read_from_jams
+from constants import LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +20,16 @@ def charge_model(obj,args):
         'sources': list(args.dset.sources),
         'audio_channels': args.dset.channels,
         'samplerate': args.dset.samplerate,
-        'segment': args.model_segment or 4 * args.dset.segment,
+        'segment': 4 * args.dset.segment,
     }
-    kw = OmegaConf.to_container(getattr(args, args.model), resolve=True)
-    model = obj(**extra, **kw)
+    model = obj(**extra, **args.get('audiomancy'))
     return model
 
 def get_optimizer(model, args):
     seen_params = set()
     other_params = []
     groups = []
-    for n, module in model.named_modules():
+    for _, module in model.named_modules():
         if hasattr(module, "make_optim_group"):
             group = module.make_optim_group()
             params = set(group["params"])
@@ -61,9 +60,21 @@ def get_optimizer(model, args):
 
 
 def splitter(args):
-    return True
+    ret = []
+    for key, value in LABELS.items():
+        if key in args.dset.sources:
+           ret.append(value) 
+    
+    X, Y = read_from_jams(args.dset.jams)
+    Y = Y[:,ret,:,:]
+    prop = args.dset.training_split.split('/')
+    
+    X_T, X_tv, Y_T, Y_tv = train_test_split(X,Y,test_size=(prop[-1]+prop[-2])/100, random_state=args.seed)
+    X_t, X_v, Y_t, Y_v = train_test_split(X_tv,Y_tv,test_size=0.5,random_state=args.seed)
 
-def get_solver(args, model_only=False):
+    return (X_T,Y_T), (X_v,Y_v), (X_t,Y_t)
+
+def get_solver(args):
     distrib.init()
 
     torch.manual_seed(args.seed)
@@ -87,14 +98,14 @@ def get_solver(args, model_only=False):
     assert args.batch_size % distrib.world_size == 0
     args.batch_size //= distrib.world_size
 
-    if model_only:
-        return Solver(None, model, optimizer, args)
-
-    train_set, valid_set = splitter(args)
+    train_set, valid_set, test_set = splitter(args)
 
     logger.info("train/valid set size: %d %d", len(train_set), len(valid_set))
     train_loader = distrib.loader(
         train_set, batch_size=args.batch_size, shuffle=True,
+        num_workers=args.misc.num_workers, drop_last=True)
+    test_loader = distrib.loader(
+        test_set, batch_size=1, shuffle=True,
         num_workers=args.misc.num_workers, drop_last=True)
     if args.dset.full_cv:
         valid_loader = distrib.loader(
@@ -104,18 +115,13 @@ def get_solver(args, model_only=False):
         valid_loader = distrib.loader(
             valid_set, batch_size=args.batch_size, shuffle=False,
             num_workers=args.misc.num_workers, drop_last=True)
-    loaders = {"train": train_loader, "valid": valid_loader}
+    loaders = {"train": train_loader, "valid": valid_loader,"test":test_loader}
 
     # Construct Solver
     return Solver(loaders, model, optimizer, args)
 
-def main(args):
+def start(args):
     global __file__
-    for attr in ["musdb", "wav", "metadata"]:
-        val = getattr(args.dset, attr)
-        if val is not None:
-            setattr(args.dset, attr, hydra.utils.to_absolute_path(val))
-
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
 
@@ -124,8 +130,6 @@ def main(args):
 
     logger.info("For logs, checkpoints and samples check %s", os.getcwd())
     logger.debug(args)
-    from dora import get_xp
-    logger.debug(get_xp().cfg)
 
     solver = get_solver(args)
     solver.train()

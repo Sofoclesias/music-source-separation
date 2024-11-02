@@ -108,7 +108,7 @@ def serialize_model(model, training_args, quantizer=None, half=True):
         'args': args,
         'kwargs': kwargs,
         'state': state,
-        'training_args': OmegaConf.to_container(training_args, resolve=True),
+        'training_args': training_args,
     }
 
 
