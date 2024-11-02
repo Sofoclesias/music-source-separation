@@ -19,15 +19,15 @@ def _summary(metrics):
 
 
 class Solver(object):
-    def __init__(self, loaders, model, optimizer, args):
+    def __init__(self, loaders, model, optimizer, device,args):
         self.args = args
         self.loaders = loaders
 
         self.model = model
         self.optimizer = optimizer
         self.quantizer = states.get_quantizer(self.model, args.quant, self.optimizer)
-        self.dmodel = distrib.wrap(model)
-        self.device = next(iter(self.model.parameters())).device
+        self.dmodel = distrib.wrap(model)        
+        self.device = device
 
         # Exponential moving average of the model, either updated every batch or epoch.
         # The best model from all the EMAs and the original one is kept based on the valid
@@ -35,7 +35,7 @@ class Solver(object):
         self.emas = {'batch': [], 'epoch': []}
         for kind in self.emas.keys():
             decays = getattr(args.ema, kind)
-            device = self.device if kind == 'batch' else 'cpu'
+            device = self.device
             if decays:
                 for decay in decays:
                     self.emas[kind].append(ModelEMA(self.model, decay, device=device))

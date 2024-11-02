@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 from .architecture import distrib
 from .architecture.solver import Solver
 from .common import read_from_jams
-from constants import LABELS
+from .constants import LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,7 @@ def get_solver(args):
     distrib.init()
 
     torch.manual_seed(args.seed)
+    device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
     model = charge_model(args)
     if args.misc.show:
         logger.info(model)
@@ -118,7 +119,7 @@ def get_solver(args):
     loaders = {"train": train_loader, "valid": valid_loader,"test":test_loader}
 
     # Construct Solver
-    return Solver(loaders, model, optimizer, args)
+    return Solver(loaders, model, optimizer, device, args)
 
 def start(args):
     global __file__
