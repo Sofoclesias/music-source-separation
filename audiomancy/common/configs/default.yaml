@@ -26,7 +26,7 @@ test:
   metric: 'nsdr'
 
 epochs: 360
-batch_size: 16
+batch_size: 4
 
 optim:
   lr: 3e-4
