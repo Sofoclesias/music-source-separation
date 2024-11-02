@@ -10,7 +10,7 @@ TO-DO:
 import torch
 import math
 from torch import nn
-import torch.functional as F
+import torch.nn.functional as F
 from ..audioprocessing import spectro, ispectro
 from .states import capture_init
 from .layers import HEncLayer, HDecLayer, MultiWrap, ScaledEmbedding 
@@ -279,7 +279,7 @@ class Audiomancer(nn.Module):
                 "dconv_kw": {
                     "depth": dconv_depth,
                     "compress": dconv_comp,
-                    "init": dconv_init,
+                    "init": float(dconv_init),
                     "gelu": True,
                 },
             }

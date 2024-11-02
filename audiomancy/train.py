@@ -7,20 +7,36 @@ import logging
 import os
 import sys
 import torch
+from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 from .architecture import distrib
+from .architecture.model import Audiomancer
 from .architecture.solver import Solver
 from .common import read_from_jams
 from .constants import LABELS
 
+logging.basicConfig(level=logging.DEBUG,force=True)
 logger = logging.getLogger(__name__)
+stream_handler = logging.StreamHandler(sys.stdout)
+
+
+class stems(Dataset):
+    def __init__(self,X,Y):
+        self.X = torch.tensor(X, dtype=torch.float32)
+        self.Y = torch.tensor(Y, dtype=torch.float32)
+        
+    def __len__(self):
+        return len(self.X)
+    
+    def __getitem__(self,idx):
+        return self.X[idx], self.Y[idx]
 
 def charge_model(obj,args):
     extra = {
         'sources': list(args.dset.sources),
         'audio_channels': args.dset.channels,
         'samplerate': args.dset.samplerate,
-        'segment': 4 * args.dset.segment,
+        'segment': args.dset.segment,
     }
     model = obj(**extra, **args.get('audiomancy'))
     return model
@@ -44,14 +60,14 @@ def get_optimizer(model, args):
     if args.optim.optim == "adam":
         return torch.optim.Adam(
             parameters,
-            lr=args.optim.lr,
+            lr=float(args.optim.lr),
             betas=(args.optim.momentum, args.optim.beta2),
             weight_decay=args.optim.weight_decay,
         )
     elif args.optim.optim == "adamw":
         return torch.optim.AdamW(
             parameters,
-            lr=args.optim.lr,
+            lr=float(args.optim.lr),
             betas=(args.optim.momentum, args.optim.beta2),
             weight_decay=args.optim.weight_decay,
         )
@@ -69,17 +85,17 @@ def splitter(args):
     Y = Y[:,ret,:,:]
     prop = args.dset.training_split.split('/')
     
-    X_T, X_tv, Y_T, Y_tv = train_test_split(X,Y,test_size=(prop[-1]+prop[-2])/100, random_state=args.seed)
+    X_T, X_tv, Y_T, Y_tv = train_test_split(X,Y,test_size=(int(prop[-1])+int(prop[-2]))/100, random_state=args.seed)
     X_t, X_v, Y_t, Y_v = train_test_split(X_tv,Y_tv,test_size=0.5,random_state=args.seed)
 
-    return (X_T,Y_T), (X_v,Y_v), (X_t,Y_t)
+    return stems(X_T,Y_T), stems(X_v,Y_v), stems(X_t,Y_t)
 
 def get_solver(args):
     distrib.init()
 
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
-    model = charge_model(args)
+    model = charge_model(Audiomancer,args)
     if args.misc.show:
         logger.info(model)
         mb = sum(p.numel() for p in model.parameters()) * 4 / 2**20
@@ -128,6 +144,8 @@ def start(args):
 
     if args.misc.verbose:
         logger.setLevel(logging.DEBUG)
+        stream_handler.setLevel(logging.DEBUG)
+        logger.addHandler(stream_handler)
 
     logger.info("For logs, checkpoints and samples check %s", os.getcwd())
     logger.debug(args)

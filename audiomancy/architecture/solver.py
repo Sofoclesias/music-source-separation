@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 from dora.utils import write_and_rename
 from dora.log import LogProgress, bold
+from dora.link import Link
 
 from . import distrib, states
 from .utils import EMA, ModelEMA, pull_metric
@@ -42,6 +43,9 @@ class Solver(object):
 
         self.folder = os.path.join(OUTPUT_PATH,args.exp.name)
         os.makedirs(self.folder,exist_ok=True)
+        file_handler = logging.FileHandler(os.path.join(self.folder,'log.txt'),mode='a',encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG)
+        logger.addHandler(file_handler)
         # Checkpoints
         self.checkpoint_file = os.path.join(self.folder,'checkpoint.th')
         self.best_file = os.path.join(self.folder,'best.th')
@@ -49,9 +53,8 @@ class Solver(object):
         self.best_state = None
         self.best_changed = False
 
-        self.history = os.path.join(self.folder,'history')
-        os.makedirs(self.history,exist_ok=True)
-
+        self.link = Link(os.path.join(self.folder,'history.json'))
+        self.history = self.link.history
         self._reset()
 
     def _serialize(self):
@@ -77,7 +80,7 @@ class Solver(object):
 
     def _reset(self):
         """Reset state of the solver, potentially using checkpoint."""
-        if self.checkpoint_file.exists():
+        if os.path.exists(self.checkpoint_file):
             logger.info(f'Loading checkpoint model: {self.checkpoint_file}')
             package = torch.load(self.checkpoint_file, 'cpu')
             self.model.load_state_dict(package['state'])
@@ -260,13 +263,9 @@ class Solver(object):
                               updates=self.args.misc.num_prints, name=name)
         averager = EMA()
 
-        for idx, sources in enumerate(logprog):
+        for idx, (mix,sources) in enumerate(logprog):
             sources = sources.to(self.device)
-            if train:
-                mix = sources.sum(dim=1)
-            else:
-                mix = sources[:, 0]
-                sources = sources[:, 1:]
+            mix = mix.to(self.device)
 
             if not train and self.args.valid_apply:
                 estimate = apply_model(self.model, mix, split=self.args.test.split, overlap=0)
@@ -347,6 +346,7 @@ class Solver(object):
             logprog.update(**logs)
             # Just in case, clear some memory
             del loss, estimate, reco, ms
+            torch.cuda.empty_cache()
         if train:
             for ema in self.emas['epoch']:
                 ema.update()

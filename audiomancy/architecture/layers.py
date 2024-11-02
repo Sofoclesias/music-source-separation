@@ -1,6 +1,6 @@
 
 import torch
-import torch.functional as F
+import torch.nn.functional as F
 from torch import nn
 from copy import deepcopy
 import typing as tp
