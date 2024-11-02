@@ -116,6 +116,7 @@ def get_solver(args):
     args.batch_size //= distrib.world_size
 
     train_set, valid_set, test_set = splitter(args)
+    args.weights = args.weights[:len(args.dset.sources)]
 
     logger.info("train/valid set size: %d %d", len(train_set), len(valid_set))
     train_loader = distrib.loader(

@@ -38,7 +38,7 @@ optim:
   clip_grad: 0
 
 seed: 42
-weights: [1., 1., 1., 1.]
+weights: [1., 1., 1., 1., 1., 1.]
 max_batches: 
 valid_apply: true
 

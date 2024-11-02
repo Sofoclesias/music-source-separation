@@ -1,6 +1,0 @@
-Checkpoint will be saved to d:\repos\universidad\music-source-separation\outputs\audiomancer0_1\checkpoint.th
-----------------------------------------------------------------------
-Training...
-Checkpoint will be saved to d:\repos\universidad\music-source-separation\outputs\audiomancer0_1\checkpoint.th
-----------------------------------------------------------------------
-Training...
