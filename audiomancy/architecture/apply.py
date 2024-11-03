@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import tqdm
 import random
 from threading import Lock
-from .utils import center_trim
+from .utils import center_trim, DummyPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
 import copy
 
@@ -148,6 +148,8 @@ def apply_model(model,
     if pool is None:
         if num_workers > 0 and device.type == 'cpu':
             pool = ThreadPoolExecutor(num_workers)
+        else:
+            pool = DummyPoolExecutor()
     if lock is None:
         lock = Lock()
     callback_arg = _replace_dict(

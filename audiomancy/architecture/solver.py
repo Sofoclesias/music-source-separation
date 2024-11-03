@@ -1,6 +1,7 @@
 
 import logging
 import os
+import gc
 import torch
 import torch.nn.functional as F
 from dora.utils import write_and_rename
@@ -243,7 +244,7 @@ class Solver(object):
 
             if distrib.rank == 0:
                 # Save model each epoch
-                self._serialize(epoch)
+                self._serialize()
                 logger.debug("Checkpoint saved to %s", self.checkpoint_file)
             if is_last:
                 break
@@ -268,7 +269,7 @@ class Solver(object):
             mix = mix.to(self.device)
 
             if not train and self.args.valid_apply:
-                estimate = apply_model(self.model, mix, split=self.args.test.split, overlap=0)
+                estimate = apply_model(self.model, mix, split=self.args.test.split, overlap=0.25)
             else:
                 estimate = self.dmodel(mix)
             assert estimate.shape == sources.shape, (estimate.shape, sources.shape)
@@ -333,10 +334,6 @@ class Solver(object):
                         self.model.parameters(),
                         args.optim.clip_grad)
 
-                if self.args.flag == 'uns':
-                    for n, p in self.model.named_parameters():
-                        if p.grad is None:
-                            print('no grad', n)
                 self.optimizer.step()
                 self.optimizer.zero_grad()
                 for ema in self.emas['batch']:
@@ -346,6 +343,7 @@ class Solver(object):
             logprog.update(**logs)
             # Just in case, clear some memory
             del loss, estimate, reco, ms
+            gc.collect()
             torch.cuda.empty_cache()
         if train:
             for ema in self.emas['epoch']:

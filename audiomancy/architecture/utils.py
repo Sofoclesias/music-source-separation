@@ -2,6 +2,7 @@
 import torch
 import typing as tp
 import torch.nn.functional as F
+from concurrent.futures import CancelledError
 from torch import nn
 import math
 from collections import defaultdict
@@ -9,6 +10,35 @@ from contextlib import contextmanager
 from .states import swap_state
 import tempfile
 import os
+
+class DummyPoolExecutor:
+    class DummyResult:
+        def __init__(self, func, _dict, *args, **kwargs):
+            self.func = func
+            self._dict = _dict
+            self.args = args
+            self.kwargs = kwargs
+
+        def result(self):
+            if self._dict["run"]:
+                return self.func(*self.args, **self.kwargs)
+            else:
+                raise CancelledError()
+
+    def __init__(self, workers=0):
+        self._dict = {"run": True}
+
+    def submit(self, func, *args, **kwargs):
+        return DummyPoolExecutor.DummyResult(func, self._dict, *args, **kwargs)
+
+    def shutdown(self, *_, **__):
+        self._dict["run"] = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        return
 
 def pad1d(x: torch.Tensor, paddings: tp.Tuple[int, int], mode: str = 'constant', value: float = 0.):
     """Tiny wrapper around F.pad, just to allow for reflect padding on small input.

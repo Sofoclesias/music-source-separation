@@ -12,6 +12,7 @@ dset:
   channels: 1
   full_cv: 2
   normalize: true
+  train_valid: true
   sources: ['accoustic','bass','drums','piano','strings','vocals']
 
 test:
