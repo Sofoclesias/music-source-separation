@@ -1,1 +1,1 @@
-Aquí van todos los archivos de entrenamiento.
+Aquí van todos los archivos de entrenamiento generados con notebooks/3. Training.ipynb

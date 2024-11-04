@@ -16,13 +16,12 @@ dset:
   sources: ['accoustic','bass','drums','piano','strings','vocals']
 
 test:
-  save: False
   split: True
   best: True
   every: 20
   shifts: 1
   overlap: 0.25
-  workers: 2
+  workers: 1
   sdr: True
   metric: 'nsdr'
 

@@ -6,6 +6,7 @@ from dora.log import LogProgress
 import logging
 from concurrent import futures
 import numpy as np
+import os
 import museval
 from ..audioprocessing import save_audio, convert_audio
 from .apply import apply_model
@@ -28,10 +29,10 @@ def new_sdr(references, estimates):
     return scores
 
 def eval_track(references, estimates, win, hop, compute_sdr=True):
-    references = references.transpose(1, 2).double()
-    estimates = estimates.transpose(1, 2).double()
+    references = references.double()
+    estimates = estimates.double()
 
-    new_scores = new_sdr(references.cpu()[None], estimates.cpu()[None])[0]
+    new_scores = new_sdr(references.cpu(), estimates.cpu())[0]
 
     if not compute_sdr:
         return None, new_scores
@@ -55,11 +56,6 @@ def evaluate(solver,test_set, compute_sdr=False):
     """
     args = solver.args
 
-    output_dir = solver.folder / "results"
-    output_dir.mkdir(exist_ok=True, parents=True)
-    json_folder = solver.folder / "results/test"
-    json_folder.mkdir(exist_ok=True, parents=True)
-
     # we load tracks from the original musdb set
     src_rate = 44100
     eval_device = 'cpu'
@@ -68,64 +64,50 @@ def evaluate(solver,test_set, compute_sdr=False):
     win = int(1. * model.samplerate)
     hop = int(1. * model.samplerate)
 
-    indexes = range(distrib.rank, len(test_set), distrib.world_size)
-    indexes = LogProgress(logger, indexes, updates=args.misc.num_prints,
+    logprog = LogProgress(logger, test_set, updates=args.misc.num_prints,
                           name='Eval')
     pendings = []
 
     pool = futures.ProcessPoolExecutor
     with pool(args.test.workers) as pool:
-        for index in indexes:
-            track = test_set[index]
-
-            mix = torch.from_numpy(track).t().float()
-            if mix.dim() == 1:
-                mix = mix[None]
+        for idx, (mix, sources) in enumerate(logprog):
             mix = mix.to(solver.device)
-            ref = mix.mean(dim=0)  # mono mixture
+            ref = mix.mean(dim=1)  # mono mixture
             mix = (mix - ref.mean()) / ref.std()
             mix = convert_audio(mix, src_rate, model.samplerate, model.audio_channels)
-            estimates = apply_model(model, mix[None],
+            estimates = apply_model(model, mix,
                                     shifts=args.test.shifts, split=args.test.split,
                                     overlap=args.test.overlap)[0]
-            estimates = estimates * ref.std() + ref.mean()
+            estimates = estimates[None] * ref.std() + ref.mean()
             estimates = estimates.to(eval_device)
 
-            references = torch.stack(
-                [torch.from_numpy(track.targets[name].audio).t() for name in model.sources])
-            if references.dim() == 2:
-                references = references[:, None]
-            references = references.to(eval_device)
-            references = convert_audio(references, src_rate,
+            sources = sources.to(eval_device)
+            sources = convert_audio(sources, src_rate,
                                        model.samplerate, model.audio_channels)
-            if args.test.save:
-                folder = solver.folder / "wav" / track.name
-                folder.mkdir(exist_ok=True, parents=True)
-                for name, estimate in zip(model.sources, estimates):
-                    save_audio(estimate.cpu(), folder / (name + ".mp3"), model.samplerate)
-
-            pendings.append((track.name, pool.submit(
-                eval_track, references, estimates, win=win, hop=hop, compute_sdr=compute_sdr)))
+            
+            pendings.append((idx, pool.submit(
+                eval_track, sources, estimates, win=win, hop=hop, compute_sdr=compute_sdr)))
 
         pendings = LogProgress(logger, pendings, updates=args.misc.num_prints,
                                name='Eval (BSS)')
         tracks = {}
-        for track_name, pending in pendings:
+        for idx, pending in pendings:
             pending = pending.result()
             scores, nsdrs = pending
-            tracks[track_name] = {}
-            for idx, target in enumerate(model.sources):
-                tracks[track_name][target] = {'nsdr': [float(nsdrs[idx])]}
+            tracks[idx] = {}
+            
+            for idy, target in enumerate(model.sources):
+                tracks[idx][target] = {'nsdr': [float(nsdrs[idy])]}
             if scores is not None:
                 (sdr, isr, sir, sar) = scores
-                for idx, target in enumerate(model.sources):
+                for idz, target in enumerate(model.sources):
                     values = {
-                        "SDR": sdr[idx].tolist(),
-                        "SIR": sir[idx].tolist(),
-                        "ISR": isr[idx].tolist(),
-                        "SAR": sar[idx].tolist()
+                        "SDR": sdr[idz].tolist(),
+                        "SIR": sir[idz].tolist(),
+                        "ISR": isr[idz].tolist(),
+                        "SAR": sar[idz].tolist()
                     }
-                    tracks[track_name][target].update(values)
+                    tracks[idx][target].update(values)
 
         all_tracks = {}
         for src in range(distrib.world_size):

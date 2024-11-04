@@ -132,20 +132,6 @@ class Solver(object):
 
     def train(self):
         # Optimizing the model
-        if self.history:
-            logger.info("Replaying metrics from previous run")
-        for epoch, metrics in enumerate(self.history):
-            formatted = self._format_train(metrics['train'])
-            logger.info(
-                bold(f'Train Summary | Epoch {epoch + 1} | {_summary(formatted)}'))
-            formatted = self._format_train(metrics['valid'])
-            logger.info(
-                bold(f'Valid Summary | Epoch {epoch + 1} | {_summary(formatted)}'))
-            if 'test' in metrics:
-                formatted = self._format_test(metrics['test'])
-                if formatted:
-                    logger.info(bold(f"Test Summary | Epoch {epoch + 1} | {_summary(formatted)}"))
-
         epoch = 0
         for epoch in range(len(self.history), self.args.epochs):
             # Train one epoch
