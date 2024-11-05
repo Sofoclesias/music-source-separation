@@ -1,0 +1,5 @@
+sox
+ffmpeg
+ffprobe
+libcudnn8
+cuda-12-4
