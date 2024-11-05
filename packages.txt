@@ -1,2 +1,2 @@
-apt-get sox
-apt-get ffmpeg
+sox
+ffmpeg
