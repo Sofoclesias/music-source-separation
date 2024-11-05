@@ -21,14 +21,15 @@ def model_results(file):
     from audiomancy.architecture.states import load_model
     import librosa
     import torch
-
+    from datetime import datetime as dt
+    now = dt.now()
     X, _ = librosa.load(file,sr=44100,mono=True)
-    X = torch.from_numpy(X).to(device='cuda' if torch.cuda.is_available() else 'cpu')[None][None]
+    X = torch.from_numpy(X)[None][None]
     args = torch.load('src/best.th')
     model = load_model(args)
     Y = apply_model(model,X,split=True,overlap=0.25)
-    fig, html = show_sources(Y[0],args['kwargs']['sources'])
-    return fig, html
+    fig, html = show_sources(Y[0].numpy(),args['kwargs']['sources'])
+    return fig, html, (dt.now() - now)/60
 
 header = load_source('src/img/header.png')
 
@@ -110,8 +111,9 @@ if selected == "Upload":
   }
   </style>""", unsafe_allow_html=True)
         with st.spinner("Conjuring the demixing..."):
-            fig, html = model_results(uploaded_file)
+            fig, html, minutes = model_results(uploaded_file)
         plt.close(fig)
+        st.markdown(f'<div style="text-align: center; margin-top: 10px;>Sources isolated in {minutes} minutes.</div>',unsafe_allow_html=True)
         st.pyplot(fig)
         st.components.v1.html(html,height=500)
     

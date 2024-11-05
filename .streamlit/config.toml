@@ -6,3 +6,6 @@ textColor="#4d002a"
 
 [client]
 showWarningOnDirectExecution = false
+
+[server]
+maxMessageSize = 1000
