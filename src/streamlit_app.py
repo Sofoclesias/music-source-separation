@@ -14,7 +14,7 @@ def load_model():
     import gdown
     import torch
     from audiomancy.architecture.states import load_model
-    args = torch.load(gdown.download(st.secrets['model']['link'],st.secrets['model']['output']))
+    args = torch.load(gdown.download(url=st.secrets['model']['link'],output=st.secrets['model']['output'],postprocess=gdown.extractall))
     model = load_model(args)
     return args, model
 
