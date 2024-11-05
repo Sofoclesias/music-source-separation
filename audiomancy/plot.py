@@ -74,7 +74,7 @@ def visualize_waveform(audio_signal, ch=0, do_mono=False, x_axis='time', **kwarg
     
     x_coords = librosa.display.__mesh_coords(x_axis, None, data.shape[0],
     sr=44100, hop_length=4096//4)
-    extent = [x_coords.min(), x_coords.max()//1000]
+    extent = [0, audio_signal.shape[-1]/44100]
 
     librosa.display.waveshow(data, sr=44100, axis=x_axis, **kwargs)
     plt.ylabel('Amplitude')

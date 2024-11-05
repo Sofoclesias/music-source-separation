@@ -9,3 +9,5 @@ outputs/*
 .venv/
 .vs/
 *.th
+.gae/
+secret.toml
