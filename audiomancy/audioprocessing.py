@@ -28,7 +28,6 @@ for Soundscape Synthesis and Augmentation"
 import numpy as np
 np.float_ = np.float64
 np.Inf = np.inf
-import scaper
 import librosa
 import os
 from tqdm import tqdm
@@ -76,6 +75,7 @@ class cacophony:
     de metadatos ya pre-confeccionados.
     """
     def __init__(self, duration: float = 5.0, sampling: int = 44100, n_channels: int = 1, ref_db: int = -20, fg_path: str | None = None, seed: int = 42):
+        import scaper
         """Configura los hiperparámetros del creador de muestras
         aleatorias.
 
@@ -191,7 +191,7 @@ class cacophony:
         if not os.path.exists(TEMP_PATH): # Creación de la carpeta "temp/"
             print('Creada carpeta temporal para resguardar memoria.\n')
             os.makedirs(TEMP_PATH,exist_ok=True)
-        
+        import scaper
         
         sc = scaper.Scaper(             
                 duration=self.duration,  
@@ -275,7 +275,7 @@ class cacophony:
         
         mixtures = []
         stems = []
-        
+        import scaper
         print('Reconstrucción de audios.')
         for ann in tqdm(jams.load(jams_path,strict=False).annotations):
             temp = jams.JAMS()
