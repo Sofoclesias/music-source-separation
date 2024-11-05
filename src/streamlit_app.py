@@ -9,12 +9,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-@st.cache
+@st.cache_data
 def load_model():
     import gdown
     import torch
     from audiomancy.architecture.states import load_model
-    args = torch.load(gdown.download(url=st.secrets['model']['link'],output=st.secrets['model']['output'],postprocess=gdown.extractall))
+    gdown.download(url=st.secrets['model']['link'],output=st.secrets['model']['output'])
+    args = torch.load(st.secrets['model']['path'])
     model = load_model(args)
     return args, model
 
