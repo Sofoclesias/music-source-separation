@@ -26,13 +26,11 @@ for Soundscape Synthesis and Augmentation"
 }
 """
 import numpy as np
-np.float_ = np.float64
-np.Inf = np.inf
 import librosa
 import os
 from tqdm import tqdm
 import shutil
-import jams
+
 import torch
 import typing as tp
 import subprocess as sp
@@ -236,6 +234,7 @@ class cacophony:
                 sc.generate(jams_path=os.path.join(TEMP_PATH,f'soundscape_{i+1}.jams'),fix_clipping=True)
         
         print('\nFusión de archivos .jams')
+        import jams
         all_jams = jams.JAMS()
         for jams_file in tqdm([os.path.join(TEMP_PATH,f) for f in os.listdir(TEMP_PATH)]):
             jam = jams.load(jams_file,strict=False)
@@ -277,6 +276,7 @@ class cacophony:
         stems = []
         import scaper
         print('Reconstrucción de audios.')
+        import jams
         for ann in tqdm(jams.load(jams_path,strict=False).annotations):
             temp = jams.JAMS()
             temp.annotations.append(ann)

@@ -1,3 +1,2 @@
 sox
 ffmpeg
-soxbindings
