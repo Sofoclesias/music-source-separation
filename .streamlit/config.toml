@@ -4,8 +4,5 @@ backgroundColor="#f3e4db"
 secondaryBackgroundColor="#edd2a9"
 textColor="#4d002a"
 
-[client]
-showWarningOnDirectExecution = false
-
 [server]
 maxMessageSize = 1000
