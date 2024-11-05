@@ -1,5 +1,2 @@
 apt-get sox
 apt-get ffmpeg
-apt-get ffprobe
-apt-get libcudnn8
-apt-get cuda-12-4
