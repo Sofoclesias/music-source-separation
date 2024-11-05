@@ -11,11 +11,13 @@ st.set_page_config(
 
 @st.cache_data
 def load_model():
-    import gdown
     import torch
     from audiomancy.architecture.states import load_model
-    gdown.download(url=st.secrets['model']['link'],output=st.secrets['model']['output'])
-    args = torch.load(st.secrets['model']['path'])
+    import urllib.request
+    url = 'https://github.com/Sofoclesias/music-source-separation/releases/download/v0.1/best.th'
+    filename = url.split('/')[-1]
+    tmp, _ = urllib.request.urlretrieve(url,filename)
+    args = torch.load(tmp)
     model = load_model(args)
     return args, model
 
