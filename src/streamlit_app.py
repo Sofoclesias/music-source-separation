@@ -9,6 +9,17 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+@st.cache
+def load_model():
+    import gdown
+    import torch
+    from audiomancy.architecture.states import load_model
+    args = torch.load(gdown.download(st.secrets['model']['link'],st.secrets['model']['output']))
+    model = load_model(args)
+    return args, model
+
+args, model = load_model()
+
 # Cargar la imagen en base64
 def load_source(file_path):
     import base64
@@ -18,15 +29,14 @@ def load_source(file_path):
 def model_results(file):
     from audiomancy.plot import show_sources
     from audiomancy.architecture.apply import apply_model
-    from audiomancy.architecture.states import load_model
     import librosa
     import torch
     from datetime import datetime as dt
+    
     now = dt.now()
     X, _ = librosa.load(file,sr=44100,mono=True)
     X = torch.from_numpy(X)[None][None]
-    args = torch.load('src/best.th')
-    model = load_model(args)
+    
     Y = apply_model(model,X,split=True,overlap=0.25)
     fig, html = show_sources(Y[0].numpy(),args['kwargs']['sources'])
     return fig, html, (dt.now() - now)/60
