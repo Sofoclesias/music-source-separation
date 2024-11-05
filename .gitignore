@@ -8,3 +8,4 @@ temp/
 outputs/*
 .venv/
 .vs/
+*.th
