@@ -2,6 +2,14 @@
 exp:
   name: 'audiomancer0_1'
   ver: 'v0.1'
+  out_path: 
+
+# Si nada en out_path, por defecto los modelos y el log será 
+# en outputs/ del repositorio. Si lo corres en Google Colab, 
+# especificar la ruta exacta considerando:
+#
+# from google.colab import drive
+# drive.mount('/content/drive')
 
 dset:
   jams: 200

@@ -42,7 +42,12 @@ class Solver(object):
                 for decay in decays:
                     self.emas[kind].append(ModelEMA(self.model, decay, device=device))
 
-        self.folder = os.path.join(OUTPUT_PATH,args.exp.name)
+        if args.exp.out_path is None:
+            abs_path = OUTPUT_PATH
+        else:
+            abs_path = args.exp.out_path
+        
+        self.folder = os.path.join(abs_path,args.exp.name)
         os.makedirs(self.folder,exist_ok=True)
         file_handler = logging.FileHandler(os.path.join(self.folder,'log.txt'),mode='a',encoding='utf-8')
         file_handler.setLevel(logging.DEBUG)
