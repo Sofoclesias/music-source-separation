@@ -15,5 +15,7 @@ jobs:
       - name: Build and push the image
         run: |
           docker login --username sofoclesias --password ${{ secrets.GH_PAT}} ghcr.io
-          docker build . -t ghcr.io/sofoclesias/audiomancy:latest
+          docker build --target train -t ghcr.io/sofoclesias/train-gc:latest .
+          docker build --target stream -t ghcr.io/sofoclesias/audiomancy:latest .
+          docker push ghcr.io/sofoclesias/train-gc:latest         
           docker push ghcr.io/sofoclesias/audiomancy:latest
