@@ -10,6 +10,51 @@ import shutil
 from mega import Mega
 from tqdm import tqdm
 
+def audioset_retrieval(url,folder):
+    import os
+    import yt_dlp
+    from selenium.webdriver import Firefox
+    from selenium.webdriver.common.by import By
+    from time import sleep
+    from tqdm import tqdm
+    
+    os.makedirs(folder,exist_ok=True)
+    
+    opts = {
+        'format': 'bestvideo+bestaudio/best',
+        'outtmpl': f'{folder}/%(title)s.%(ext)s',
+        'retries': 10,
+        'sleep_interval': 5,
+        'quiet': False,
+        'ignoreerrors': True
+    }
+    
+    driver = Firefox()
+    driver.get(url)
+    driver.implicitly_wait(300)
+
+    last_height = driver.execute_script('return document.body.scrollHeight')
+    while True:
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        sleep(2)
+        
+        new_height = driver.execute_script('return document.body.scrollHeight')
+        if new_height == last_height:
+            break
+        else:
+            last_height = new_height
+
+    vids = len(driver.find_elements(By.XPATH,'//*[@id="thumbnails"]/div'))
+    links = [
+        'https://www.youtube.com/watch?v=' + driver.find_element(By.XPATH,f'//*[@id="thumbnails"]/div[{i}]/img').get_attribute('src').split('/')[-2] for i in tqdm(range(1,vids+1))
+    ]
+    driver.close()    
+    
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        ydl.download(links)
+        
+    return True
+
 def download_file(url: str, destination: str):
     """Descarga archivos que sean recuperables mediante requests.
 
