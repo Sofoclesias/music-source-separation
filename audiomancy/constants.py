@@ -20,10 +20,10 @@ JAMS_FILE_1000 = os.path.join(ABSOLUTE_PATH,'common','1000_soundscapes.jams')
 STEM_METADATA = os.path.join(ABSOLUTE_PATH,'common','metadata.json')
 
 LABELS = {
-    'accoustic':0,
-    'bass':1,
+    'bass':0,
+    'brass':1,
     'drums':2,
-    'piano':3,
-    'strings':4,
+    'guitar':3,
+    'piano':4,
     'vocals':5
 }
