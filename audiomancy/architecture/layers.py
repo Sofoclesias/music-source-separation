@@ -204,6 +204,8 @@ class HDecLayer(nn.Module):
         super().__init__()
         norm_fn = lambda d: nn.Identity()  # noqa
         if norm:
+            if norm_groups % 2 != 0:
+                norm_groups += 1
             norm_fn = lambda d: nn.GroupNorm(norm_groups, d)  # noqa
         if pad:
             pad = kernel_size // 4

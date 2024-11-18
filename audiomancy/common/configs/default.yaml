@@ -11,7 +11,7 @@ exp:
 # drive.mount('/content/drive')
 
 dset:
-  jams: 200
+  jams: 50
   samplerate: 44100
   segment: 1
   shift: 1
@@ -33,7 +33,7 @@ test:
   metric: 'nsdr'
 
 epochs: 150
-batch_size: 32
+batch_size: 4
 
 optim:
   lr: 3e-4

@@ -671,7 +671,10 @@ class CrossTransformerEncoder(nn.Module):
         """
         """
         if dim % num_heads != 0:
-            dim += 1
+            if dim % 2 != 0:
+                dim += 1
+            if num_heads % 2 != 0:
+                num_heads += 1
         
         assert dim % num_heads == 0
 
