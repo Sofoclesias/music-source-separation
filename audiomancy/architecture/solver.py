@@ -115,7 +115,7 @@ class Solver(object):
                 losses[key] = format(metrics[key], '.3f')
         return losses
 
-    def train(self):
+    def train(self, optuna=False):
         # Optimizing the model
         epoch = 0
         for epoch in range(len(self.history), self.args.epochs):
@@ -184,6 +184,9 @@ class Solver(object):
                 logger.debug("Checkpoint saved to %s", self.checkpoint_file)
             if is_last:
                 break
+            
+        if optuna:
+            return metrics['test']
 
     def _run_one_epoch(self, epoch, train=True):
         args = self.args
