@@ -178,10 +178,13 @@ class Solver(object):
                 logger.info(bold(f"Test Summary | Epoch {epoch + 1} | {_summary(formatted)}"))
             self.link.push_metrics(metrics)
 
-            if distrib.rank == 0:
-                # Save model each epoch
-                self._serialize()
-                logger.debug("Checkpoint saved to %s", self.checkpoint_file)
+            if optuna:
+                pass
+            else:
+                if distrib.rank == 0:
+                    # Save model each epoch
+                    self._serialize()
+                    logger.debug("Checkpoint saved to %s", self.checkpoint_file)
             if is_last:
                 break
             

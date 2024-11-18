@@ -670,6 +670,9 @@ class CrossTransformerEncoder(nn.Module):
         super().__init__()
         """
         """
+        if dim % num_heads != 0:
+            dim += 1
+        
         assert dim % num_heads == 0
 
         hidden_dim = int(dim * hidden_scale)

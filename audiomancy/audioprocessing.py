@@ -262,6 +262,7 @@ class cacophony:
         """
         
         from .constants import STEMS_PATH, TEMP_PATH, JAMS_FILE_200
+        import gc
         
         if jams_path is None:
             jams_path = JAMS_FILE_200
@@ -303,6 +304,7 @@ class cacophony:
                 
             stems.append(np.array(stem).T)
             os.remove(os.path.join(TEMP_PATH,'temp.jams'))    # Quita el archivo .jams
+            gc.collect()
 
         X = np.array(mixtures)
         Y = rearrange(np.array(stems), 'b c l s -> b s c l')
