@@ -49,9 +49,6 @@ class BagOfModels(nn.Module):
                 assert len(weight) == len(first.sources)
         self.weights = weights
 
-    def forward(self, x):
-        raise NotImplementedError("Call `apply_model` on this.")
-
 class TensorChunk:
     def __init__(self, tensor, offset=0, length=None):
         total_length = tensor.shape[-1]

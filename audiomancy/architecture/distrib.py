@@ -7,20 +7,9 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader, Subset
 from torch.nn.parallel.distributed import DistributedDataParallel
 
-from dora import distrib as dora_distrib
-
 logger = logging.getLogger(__name__)
 rank = 0
 world_size = 1
-
-
-def init():
-    global rank, world_size
-    if not torch.distributed.is_initialized():
-        dora_distrib.init()
-    rank = dora_distrib.rank()
-    world_size = dora_distrib.world_size()
-
 
 def average(metrics, count=1.):
     if isinstance(metrics, dict):
@@ -34,7 +23,6 @@ def average(metrics, count=1.):
     torch.distributed.all_reduce(tensor, op=torch.distributed.ReduceOp.SUM)
     return (tensor[:-1] / tensor[-1]).cpu().numpy().tolist()
 
-
 def wrap(model):
     if world_size == 1:
         return model
@@ -44,12 +32,6 @@ def wrap(model):
             # find_unused_parameters=True,
             device_ids=[torch.cuda.current_device()],
             output_device=torch.cuda.current_device())
-
-
-def barrier():
-    if world_size > 1:
-        torch.distributed.barrier()
-
 
 def share(obj=None, src=0):
     if world_size == 1:
@@ -72,7 +54,6 @@ def share(obj=None, src=0):
         obj = pickle.loads(buffer.cpu().numpy().tobytes())
     logger.debug(f"Shared object of size {len(buffer)}")
     return obj
-
 
 def loader(dataset, *args, shuffle=False, klass=DataLoader, **kwargs):
     """

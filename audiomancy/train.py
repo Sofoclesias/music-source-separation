@@ -91,8 +91,6 @@ def splitter(args):
     return stems(X_T,Y_T), stems(X_v,Y_v), stems(X_t,Y_t)
 
 def get_solver(args):
-    distrib.init()
-
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
     model = charge_model(Audiomancer,args)

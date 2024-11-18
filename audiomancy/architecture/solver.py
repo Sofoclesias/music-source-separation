@@ -9,8 +9,8 @@ from dora.log import LogProgress, bold
 from dora.link import Link
 
 from . import distrib, states
-from .utils import EMA, ModelEMA, pull_metric
-from .evaluate import evaluate, new_sdr, svd_penalty
+from .utils import EMA, pull_metric
+from .evaluate import evaluate, new_sdr
 from ..constants import OUTPUT_PATH
 from .apply import apply_model
 
@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 def _summary(metrics):
     return " | ".join(f"{key.capitalize()}={val}" for key, val in metrics.items())
 
-
 class Solver(object):
     def __init__(self, loaders, model, optimizer, device,args):
         self.args = args
@@ -27,20 +26,8 @@ class Solver(object):
 
         self.model = model
         self.optimizer = optimizer
-        self.quantizer = states.get_quantizer(self.model, args.quant, self.optimizer)
         self.dmodel = distrib.wrap(model)        
         self.device = device
-
-        # Exponential moving average of the model, either updated every batch or epoch.
-        # The best model from all the EMAs and the original one is kept based on the valid
-        # loss for the final best model.
-        self.emas = {'batch': [], 'epoch': []}
-        for kind in self.emas.keys():
-            decays = getattr(args.ema, kind)
-            device = self.device
-            if decays:
-                for decay in decays:
-                    self.emas[kind].append(ModelEMA(self.model, decay, device=device))
 
         if args.exp.out_path is None:
             abs_path = OUTPUT_PATH
@@ -70,9 +57,7 @@ class Solver(object):
         package['history'] = self.history
         package['best_state'] = self.best_state
         package['args'] = self.args
-        for kind, emas in self.emas.items():
-            for k, ema in enumerate(emas):
-                package[f'ema_{kind}_{k}'] = ema.state_dict()
+
         with write_and_rename(self.checkpoint_file) as tmp:
             torch.save(package, tmp)
 
@@ -93,9 +78,6 @@ class Solver(object):
             self.optimizer.load_state_dict(package['optimizer'])
             self.history[:] = package['history']
             self.best_state = package['best_state']
-            for kind, emas in self.emas.items():
-                for k, ema in enumerate(emas):
-                    ema.load_state_dict(package[f'ema_{kind}_{k}'])
 
     def _format_train(self, metrics: dict) -> dict:
         """Formatting for train/valid metrics."""
@@ -105,8 +87,6 @@ class Solver(object):
         }
         if 'nsdr' in metrics:
             losses['nsdr'] = format(metrics['nsdr'], ".3f")
-        if self.quantizer is not None:
-            losses['ms'] = format(metrics['ms'], ".2f")
         if 'grad' in metrics:
             losses['grad'] = format(metrics['grad'], ".4f")
         if 'best' in metrics:
@@ -155,29 +135,9 @@ class Solver(object):
             self.model.eval()  # Turn off Batchnorm & Dropout
             with torch.no_grad():
                 valid = self._run_one_epoch(epoch, train=False)
-                bvalid = valid
-                bname = 'main'
                 state = states.copy_state(self.model.state_dict())
-                metrics['valid'] = {}
-                metrics['valid']['main'] = valid
+                metrics['valid'] = valid
                 key = self.args.test.metric
-                for kind, emas in self.emas.items():
-                    for k, ema in enumerate(emas):
-                        with ema.swap():
-                            valid = self._run_one_epoch(epoch, train=False)
-                        name = f'ema_{kind}_{k}'
-                        metrics['valid'][name] = valid
-                        a = valid[key]
-                        b = bvalid[key]
-                        if key.startswith('nsdr'):
-                            a = -a
-                            b = -b
-                        if a < b:
-                            bvalid = valid
-                            state = ema.state
-                            bname = name
-                    metrics['valid'].update(bvalid)
-                    metrics['valid']['bname'] = bname
 
             valid_loss = metrics['valid'][key]
             mets = pull_metric(self.link.history, f'valid.{key}') + [valid_loss]
@@ -186,12 +146,6 @@ class Solver(object):
             else:
                 best_loss = min(mets)
             metrics['valid']['best'] = best_loss
-            if self.args.svd.penalty > 0:
-                kw = dict(self.args.svd)
-                kw.pop('penalty')
-                with torch.no_grad():
-                    penalty = svd_penalty(self.model, exact=True, **kw)
-                metrics['valid']['penalty'] = penalty
 
             formatted = self._format_train(metrics['valid'])
             logger.info(
@@ -206,16 +160,7 @@ class Solver(object):
             # Eval model every `test.every` epoch or on last epoch
             should_eval = (epoch + 1) % self.args.test.every == 0
             is_last = epoch == self.args.epochs - 1
-            # # Tries to detect divergence in a reliable way and finish job
-            # # not to waste compute.
-            # # Commented out as this was super specific to the MDX competition.
-            # reco = metrics['valid']['main']['reco']
-            # div = epoch >= 180 and reco > 0.18
-            # div = div or epoch >= 100 and reco > 0.25
-            # div = div and self.args.optim.loss == 'l1'
-            # if div:
-            #     logger.warning("Finishing training early because valid loss is too high.")
-            #     is_last = True
+
             if should_eval or is_last:
                 # Evaluate on the testset
                 logger.info('-' * 70)
@@ -281,10 +226,6 @@ class Solver(object):
             loss = (loss * weights).sum() / weights.sum()
 
             ms = 0
-            if self.quantizer is not None:
-                ms = self.quantizer.model_size()
-            if args.quant.diffq:
-                loss += args.quant.diffq * ms
 
             losses = {}
             losses['reco'] = (reco * weights).sum() / weights.sum()
@@ -297,13 +238,6 @@ class Solver(object):
                     losses[f'nsdr_{source}'] = nsdr
                     total += w * nsdr
                 losses['nsdr'] = total / weights.sum()
-
-            if train and args.svd.penalty > 0:
-                kw = dict(args.svd)
-                kw.pop('penalty')
-                penalty = svd_penalty(self.model, **kw)
-                losses['penalty'] = penalty
-                loss += args.svd.penalty * penalty
 
             losses['loss'] = loss
 
@@ -327,8 +261,6 @@ class Solver(object):
 
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-                for ema in self.emas['batch']:
-                    ema.update()
             losses = averager(losses)
             logs = self._format_train(losses)
             logprog.update(**logs)
@@ -336,7 +268,4 @@ class Solver(object):
             del loss, estimate, reco, ms
             gc.collect()
             torch.cuda.empty_cache()
-        if train:
-            for ema in self.emas['epoch']:
-                ema.update()
         return distrib.average(losses, idx + 1)

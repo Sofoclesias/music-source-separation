@@ -11,3 +11,4 @@ outputs/*
 *.th
 .gae/
 secret.toml
+*.rar

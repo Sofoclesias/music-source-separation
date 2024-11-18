@@ -655,4 +655,3 @@ class Audiomancer(nn.Module):
             x = x[..., :length_pre_pad]
         return x
     
-    

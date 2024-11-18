@@ -6,11 +6,10 @@ from concurrent.futures import CancelledError
 from torch import nn
 import math
 from collections import defaultdict
-from contextlib import contextmanager
-from .states import swap_state
 import tempfile
 import os
 
+# Ver de eliminar
 class DummyPoolExecutor:
     class DummyResult:
         def __init__(self, func, _dict, *args, **kwargs):
@@ -76,7 +75,6 @@ def unfold(a, kernel_size, stride):
     strides = strides[:-1] + [stride, 1]
     return a.as_strided([*shape, n_frames, kernel_size], strides)
 
-
 def center_trim(tensor: torch.Tensor, reference: tp.Union[torch.Tensor, int]):
     """
     Center trim `tensor` with respect to `reference`, along the last dimension.
@@ -95,59 +93,7 @@ def center_trim(tensor: torch.Tensor, reference: tp.Union[torch.Tensor, int]):
         tensor = tensor[..., delta // 2:-(delta - delta // 2)]
     return tensor
 
-class ModelEMA:
-    """
-    Perform EMA on a model. You can switch to the EMA weights temporarily
-    with the `swap` method.
-
-        ema = ModelEMA(model)
-        with ema.swap():
-            # compute valid metrics with averaged model.
-    """
-    def __init__(self, model, decay=0.9999, unbias=True, device='cpu'):
-        self.decay = decay
-        self.model = model
-        self.state = {}
-        self.count = 0
-        self.device = device
-        self.unbias = unbias
-
-        self._init()
-
-    def _init(self):
-        for key, val in self.model.state_dict().items():
-            if val.dtype != torch.float32:
-                continue
-            device = self.device or val.device
-            if key not in self.state:
-                self.state[key] = val.detach().to(device, copy=True)
-
-    def update(self):
-        if self.unbias:
-            self.count = self.count * self.decay + 1
-            w = 1 / self.count
-        else:
-            w = 1 - self.decay
-        for key, val in self.model.state_dict().items():
-            if val.dtype != torch.float32:
-                continue
-            device = self.device or val.device
-            self.state[key].mul_(1 - w)
-            self.state[key].add_(val.detach().to(device), alpha=w)
-
-    @contextmanager
-    def swap(self):
-        with swap_state(self.model, self.state):
-            yield
-
-    def state_dict(self):
-        return {'state': self.state, 'count': self.count}
-
-    def load_state_dict(self, state):
-        self.count = state['count']
-        for k, v in state['state'].items():
-            self.state[k].copy_(v)
-
+# Ver de reemplazar
 def EMA(beta: float = 1):
     """
     Exponential Moving Average callback.
@@ -168,7 +114,6 @@ def EMA(beta: float = 1):
         return {key: tot / fix[key] for key, tot in total.items()}
     return _update
 
-
 def rescale_conv(conv, reference):
     """Rescale initial weight scale. It is unclear why it helps but it certainly does.
     """
@@ -177,7 +122,6 @@ def rescale_conv(conv, reference):
     conv.weight.data /= scale
     if conv.bias is not None:
         conv.bias.data /= scale
-
 
 def rescale_module(module, reference):
     for sub in module.modules():

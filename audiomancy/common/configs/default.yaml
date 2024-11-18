@@ -1,4 +1,3 @@
-
 exp:
   name: 'audiomancer0_1'
   ver: 'v0.1'
@@ -12,7 +11,7 @@ exp:
 # drive.mount('/content/drive')
 
 dset:
-  jams: 200
+  jams: 50
   samplerate: 44100
   segment: 1
   shift: 1
@@ -21,7 +20,7 @@ dset:
   full_cv: 2
   normalize: true
   train_valid: true
-  sources: ['accoustic','bass','drums','piano','strings','vocals']
+  sources: ['bass','brass','drums','guitar','piano','vocals']
 
 test:
   split: True
@@ -55,10 +54,6 @@ misc:
   num_prints: 4
   show: False
   verbose: False
-
-ema:
-  epoch: []
-  batch: []
 
 audiomancy:
   use_train_segment: true
@@ -138,20 +133,3 @@ audiomancy:
   t_cross_first: False
   # Weight init
   rescale: 0.1
-
-svd:
-  penalty: 0
-  min_size: 0.1
-  dim: 1
-  niters: 2
-  powm: False
-  proba: 1
-  conv_only: False
-  convtr: False
-  bs: 1
-
-quant:  # quantization hyper params
-  diffq:    # diffq penalty, typically 1e-4 or 3e-4
-  qat:      # use QAT with a fixed number of bits (not as good as diffq)
-  min_size: 0.2
-  group_size: 8
